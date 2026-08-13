@@ -1,66 +1,68 @@
 # procscope
 
-`procscope` é uma CLI de observabilidade local para Linux. Ela mostra, em segundos, o que um processo está consumindo e com quais serviços ele conversa, sem agentes ou uma stack externa.
+[Português (Brasil)](README.pt-BR.md)
 
-O projeto usa somente a biblioteca padrão do Go e `/proc`. A coleta fica atrás da interface `observe.Source`, permitindo adicionar Netlink, eBPF, pprof e OpenTelemetry sem acoplar essas tecnologias à CLI ou às análises.
+`procscope` is a local observability CLI for Linux. It quickly shows what a process is consuming and which services it communicates with—without agents or a full observability stack.
 
-## Instalação
+The project uses only the Go standard library and `/proc`. Collection is hidden behind the `observe.Source` interface, so Netlink, eBPF, pprof, and OpenTelemetry support can be added without coupling those technologies to the CLI or analysis packages.
 
-Requer Go 1.22+ e Linux.
+## Installation
+
+Requires Linux and Go 1.22 or newer.
 
 ```sh
 go install github.com/augusttw/procscope/cmd/procscope@latest
-# ou, no repositório
+# Or, from the repository:
 make build
 ```
 
-## Uso rápido
+## Quick start
 
 ```sh
-# Executa e acompanha um comando até ele terminar
-procscope run -- ./meu-servidor --port 8080
+# Run and monitor a command until it exits
+procscope run -- ./my-server --port 8080
 
-# Acompanha um processo; Ctrl-C encerra apenas o procscope
+# Monitor a process; Ctrl-C stops only procscope
 procscope attach 1234
 procscope attach --once 1234
 procscope attach --once --json 1234
 
-# Rede pertencente ao processo
+# Inspect network activity owned by the process
 procscope ports 1234
 procscope connections 1234
 
-# Trace JSON de 30 segundos e diagnóstico
+# Record a 30-second JSON trace and diagnose it
 procscope record --duration 30s --interval 500ms --output before.json 1234
 procscope doctor --file before.json
 
-# Compare snapshots ou a última amostra de dois traces
+# Compare snapshots or the final samples from two traces
 procscope diff before.json after.json
 ```
 
-Dependências são inferidas pelas portas remotas mais comuns: PostgreSQL (`5432`), Redis (`6379`) e HTTP/HTTPS (`80`, `443`, `3000`, `8000`, `8080`, `8443`). Isso é uma indicação, não inspeção de protocolo.
+Dependencies are inferred from common remote ports: PostgreSQL (`5432`), Redis (`6379`), and HTTP/HTTPS (`80`, `443`, `3000`, `8000`, `8080`, `8443`). This is a hint, not protocol inspection.
 
-## Métricas e diagnóstico
+## Metrics and diagnostics
 
-Cada amostra contém CPU desde a amostra anterior, RSS, memória virtual, uptime, threads, descritores, bytes de I/O e sockets TCP/TCP6. A primeira leitura de CPU é zero porque ainda não existe uma amostra anterior.
+Each sample includes CPU usage since the previous sample, RSS, virtual memory, uptime, threads, file descriptors, I/O bytes, and TCP/TCP6 sockets. CPU usage is zero on the first sample because no previous measurement exists yet.
 
-`doctor` aplica regras transparentes para CPU elevada, estados zombie/D, muitos descritores, crescimento de RSS/FDs e excesso de `TIME_WAIT`. Em um snapshot isolado ele avalia apenas o estado atual; um trace permite detectar tendências.
+`doctor` applies transparent rules for high CPU usage, zombie or uninterruptible-sleep states, excessive file descriptors, RSS/FD growth, and large numbers of `TIME_WAIT` sockets. A single snapshot can only evaluate the current state; a trace also enables trend detection.
 
-## Arquitetura
+## Architecture
 
 ```text
-cmd/procscope       ponto de entrada
-internal/cli        comandos e experiência de terminal
-internal/observe    contrato Source e amostrador
-internal/procfs     coletor Linux atual
-internal/model      snapshots/traces versionados
-internal/analysis   diff e regras do doctor
-internal/storage    persistência JSON
-internal/format     apresentação textual
+cmd/procscope       entry point
+internal/cli        commands and terminal experience
+internal/observe    Source contract and sampler
+internal/procfs     current Linux collector
+internal/model      versioned snapshots and traces
+internal/analysis   diff and doctor rules
+internal/storage    JSON persistence
+internal/format     terminal output
 ```
 
-Limitações atuais: apenas TCP/TCP6; permissões do kernel podem ocultar FDs de outros usuários; a associação de dependência é baseada em porta; `USER_HZ=100` é assumido, como nos kernels Linux suportados pelas arquiteturas usuais.
+Current limitations: TCP/TCP6 only; kernel permissions may hide file descriptors owned by other users; dependency detection is port-based; `USER_HZ=100` is assumed, as on Linux kernels for commonly supported architectures.
 
-## Desenvolvimento
+## Development
 
 ```sh
 make test
